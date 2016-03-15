@@ -6,5 +6,10 @@ install:
   - "curl http://files.zerogw.com/vagga/vagga-install-testing.sh | sh"
   - "echo ubuntu-mirror: http://mirrors.us.kernel.org/ubuntu/ > ~/.vagga.yaml"
   - "echo alpine-mirror: http://mirrors.gigenet.com/alpinelinux/ >> ~/.vagga.yaml"
+  - vagga _build kafka
+  - vagga _build logstash
+  - vagga _build elasticsearch
+  - vagga _build ruby
+  - vagga _build zookeeper
 script: cd $TEST_DIR && vagga test
 
