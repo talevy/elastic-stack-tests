@@ -143,7 +143,7 @@ containers:
         gem install poseidon --no-rdoc --no-ri
 
 commands:
-  run: !Supervise
+  test: !Supervise
     description: Run Logstash - Kafka - Avro Test
     children:
       zookeeper: !Command
