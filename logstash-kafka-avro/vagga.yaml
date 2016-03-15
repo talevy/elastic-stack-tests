@@ -1,0 +1,180 @@
+containers:
+  glibc:
+    environ:
+      LANG: "C.UTF-8"
+    setup:
+    - !Alpine v3.3
+    - !Sh |
+        ALPINE_GLIBC_BASE_URL="https://github.com/andyshinn/alpine-pkg-glibc/releases/download" && \
+        ALPINE_GLIBC_PACKAGE_VERSION="2.23-r1" && \
+        ALPINE_GLIBC_BASE_PACKAGE_FILENAME="glibc-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
+        ALPINE_GLIBC_BIN_PACKAGE_FILENAME="glibc-bin-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
+        ALPINE_GLIBC_I18N_PACKAGE_FILENAME="glibc-i18n-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
+        apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
+        wget \
+          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" && \
+        apk add --no-cache --allow-untrusted \
+          "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" && \
+        /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true && \
+        echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh && \
+        apk del glibc-i18n && \
+        apk del build-dependencies && \
+        rm \
+          "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
+          "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME"
+
+  oracle8java:
+    environ:
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-8-oracle/bin"
+    setup:
+    - !Container glibc
+    - !Env
+      JAVA_VERSION: 8
+      JAVA_UPDATE: 74
+      JAVA_BUILD: 02
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+    - !Sh |
+        apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
+        cd "/tmp" && \
+        wget --header "Cookie: oraclelicense=accept-securebackup-cookie;" \
+          "http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION}u${JAVA_UPDATE}-b${JAVA_BUILD}/jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
+        tar -xzf "jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
+        mkdir -p "/usr/lib/jvm" && \
+        mv "/tmp/jdk1.${JAVA_VERSION}.0_${JAVA_UPDATE}" "${JAVA_HOME}" && \
+        rm -rf "$JAVA_HOME/"*src.zip && \
+        rm -rf "$JAVA_HOME/lib/missioncontrol" \
+           "$JAVA_HOME/lib/visualvm" \
+           "$JAVA_HOME/lib/"*javafx* \
+           "$JAVA_HOME/jre/lib/plugin.jar" \
+           "$JAVA_HOME/jre/lib/ext/jfxrt.jar" \
+           "$JAVA_HOME/jre/bin/javaws" \
+           "$JAVA_HOME/jre/lib/javaws.jar" \
+           "$JAVA_HOME/jre/lib/desktop" \
+           "$JAVA_HOME/jre/plugin" \
+           "$JAVA_HOME/jre/lib/"deploy* \
+           "$JAVA_HOME/jre/lib/"*javafx* \
+           "$JAVA_HOME/jre/lib/"*jfx* \
+           "$JAVA_HOME/jre/lib/amd64/libdecora_sse.so" \
+           "$JAVA_HOME/jre/lib/amd64/"libprism_*.so \
+           "$JAVA_HOME/jre/lib/amd64/libfxplugins.so" \
+           "$JAVA_HOME/jre/lib/amd64/libglass.so" \
+           "$JAVA_HOME/jre/lib/amd64/libgstreamer-lite.so" \
+           "$JAVA_HOME/jre/lib/amd64/"libjavafx*.so \
+           "$JAVA_HOME/jre/lib/amd64/"libjfx*.so && \
+        apk del build-dependencies && \
+        rm "/tmp/"*
+
+  zookeeper:
+    environ:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/zookeeper/bin"
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+    setup:
+      - !Container oracle8java
+      - !Install [bash]
+      - !Tar
+        url: http://mirror.cc.columbia.edu/pub/software/apache/zookeeper/zookeeper-3.4.8/zookeeper-3.4.8.tar.gz
+        path: /opt/zookeeper
+        subdir: zookeeper-3.4.8
+      - !Sh |
+          ln -snf /work/config/zookeeper.cfg /opt/zookeeper/conf/zoo.cfg
+    volumes:
+      /tmp: !Tmpfs {size: 100Mi}
+
+  kafka:
+    environ:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/kafka/bin"
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+      LOG_DIR: "/broker-logs"
+    setup:
+      - !Container oracle8java
+      - !Install [bash]
+      - !EnsureDir /kafka-logs
+      - !EnsureDir /broker-logs
+      - !Tar
+        url: http://mirrors.koehn.com/apache/kafka/0.8.2.2/kafka_2.11-0.8.2.2.tgz
+        path: /opt/kafka
+        subdir: kafka_2.11-0.8.2.2
+    volumes:
+      /kafka-logs: !BindRW /work/kafka-logs
+      #/kafka-logs: !Tmpfs { size: 200Mi }
+      /broker-logs: !Tmpfs { size: 10Mi }
+
+  elasticsearch:
+    environ:
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+    setup:
+    - !Container oracle8java
+    - !Tar
+      url: https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.0/elasticsearch-2.2.0.tar.gz
+      path: /usr/share/
+    - !EnsureDir /eshome
+    - !Sh |
+        mkdir -p /work/es-home/config
+        cp /usr/share/elasticsearch-2.2.0/config/logging.yml /work/es-home/config
+    volumes:
+      /eshome: !BindRW /work/es-home
+
+  logstash:
+    environ:
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+    setup:
+    - !Container oracle8java
+    - !Install [bash]
+    - !Tar
+      url: https://download.elastic.co/logstash/logstash/logstash-2.2.2.tar.gz
+      path: /usr/share
+    - !Sh |
+        /usr/share/logstash-2.2.2/bin/plugin install logstash-codec-avro
+
+
+  ruby:
+    setup:
+    - !UbuntuRelease { version: 15.04 }
+    - !UbuntuUniverse
+    - !Install [build-essential, ruby, automake, autoconf, libtool, make, ruby-dev, curl]
+    - !Sh |
+        gem install avro --no-rdoc --no-ri
+        gem install poseidon --no-rdoc --no-ri
+
+commands:
+  run: !Supervise
+    description: Run Logstash - Kafka - Avro Test
+    children:
+      zookeeper: !Command
+        container: zookeeper 
+        run: "zkServer.sh start-foreground >/work/.zookeeper.log 2>&1"
+
+      kafka: !Command
+        container: kafka
+        run: "sleep 3 && rm -rf /work/kafka-logs/* && kafka-server-start.sh /work/config/kafka.properties >/work/.kafka.log 2>&1"
+
+      elasticsearch: !Command
+        container: elasticsearch
+        user-id: 1000
+        external-user-id: 0
+        run: "/usr/share/elasticsearch-2.2.0/bin/elasticsearch --path.home=/eshome >/work/.elasticsearch.log 2>&1"
+
+      logstash: !Command
+        container: logstash
+        run: "/usr/share/logstash-2.2.2/bin/logstash -f /work/logstash.conf"
+
+      rubyrunner: !Command
+        container: ruby
+        run: "sleep 10 && ruby /work/publish_tweets.rb && cat"
+
+      assert: !Command
+        container: ruby
+        run: |
+          sleep 32
+          if [ `curl -s localhost:9200/_cat/count/logstash-*?h=count` -eq 1000 ];
+          then
+            echo "Whoo hoo!"
+          else
+            exit 1
+          fi
