@@ -7,6 +7,9 @@ $script = <<SCRIPT
   chown -R vagrant:vagrant /var/vagga
   mount --bind /var/vagga /parent/.vagga
   echo "127.0.0.1 vagrant-ubuntu-vivid-64" >> /etc/hosts
+  mkdir /home/vagrant/.cache/vagga
+  mkdir /home/vagrant/.cache/vagga/cache
+  echo "cache-dir: /home/vagrant/.cache/vagga/cache" > /home/vagrant/.config/vagga/settings.yaml
 SCRIPT
 
 Vagrant.configure(2) do |config|

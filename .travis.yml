@@ -1,7 +1,5 @@
 sudo: true
 dist: trusty
-env:
-  - TEST_DIR=logstash-kafka-avro
 install:
   - "curl http://files.zerogw.com/vagga/vagga-install-testing.sh | sh"
   - "echo ubuntu-mirror: http://mirrors.us.kernel.org/ubuntu/ > ~/.vagga.yaml"
@@ -11,5 +9,5 @@ install:
   - vagga _build elasticsearch
   - vagga _build ruby
   - vagga _build zookeeper
-script: cd $TEST_DIR && vagga test
+script: vagga test
 

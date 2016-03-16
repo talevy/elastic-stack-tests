@@ -148,31 +148,45 @@ commands:
     children:
       zookeeper: !Command
         container: zookeeper 
-        run: "zkServer.sh start-foreground >/work/.zookeeper.log 2>&1"
+        run: |
+          zkServer.sh start-foreground >/work/.zookeeper.log 2>&1
 
       kafka: !Command
         container: kafka
-        run: "sleep 3 && rm -rf /work/kafka-logs/* && kafka-server-start.sh /work/config/kafka.properties >/work/.kafka.log 2>&1"
+        run: |
+          trap 'rm -rf /work/kafka-logs/*' EXIT TERM INT
+          trap 'kill -TERM $PID' TERM INT SIGTERM
+          kafka-server-start.sh /work/config/kafka.properties >/work/.kafka.log 2>&1 &
+          PID=$!
+          wait $PID
+          EXIT_STATUS=$?
 
       elasticsearch: !Command
         container: elasticsearch
         user-id: 1000
         external-user-id: 0
-        run: "/usr/share/elasticsearch-2.2.0/bin/elasticsearch --path.home=/eshome >/work/.elasticsearch.log 2>&1"
+        run: |
+          rm -rf /work/es-home/data
+          /usr/share/elasticsearch-2.2.0/bin/elasticsearch --path.home=/eshome >/work/.es.log 2>&1
 
       logstash: !Command
         container: logstash
-        run: "/usr/share/logstash-2.2.2/bin/logstash -f /work/logstash.conf"
+        run: |
+          /usr/share/logstash-2.2.2/bin/logstash -f /work/logstash.conf
 
       rubyrunner: !Command
         container: ruby
-        run: "sleep 10 && ruby /work/publish_tweets.rb && cat"
+        run: |
+          ruby /work/publish_tweets.rb
+          cat
 
       assert: !Command
         container: ruby
         run: |
-          sleep 32
-          if [ `curl -s localhost:9200/_cat/count/logstash-*?h=count` -eq 1000 ];
+          until $(curl --output /dev/null --silent --head --fail http://localhost:9200); do
+            sleep 30
+          done
+          if [ `curl localhost:9200/_cat/count/logstash-*?h=count` -eq 1000 ];
           then
             echo "Whoo hoo!"
           else

@@ -25,8 +25,17 @@ end
 N = 1000
 N_BATCH = 100
 topic = "avro_meet_kafka"
-producer = Poseidon::Producer.new(["localhost:9092"], "my_test_producer")
-gen_random_events(N).each_slice(N_BATCH) { |batch|
-  producer.send_messages(batch.map{|m| Poseidon::MessageToSend.new(topic, encode(m))})
-}
-producer.shutdown
+producer = nil
+while producer.nil?
+  begin
+    producer = Poseidon::Producer.new(["localhost:9092"], "my_test_producer")
+    gen_random_events(N).each_slice(N_BATCH) { |batch|
+      producer.send_messages(batch.map{|m| Poseidon::MessageToSend.new(topic, encode(m))})
+    }
+    break
+  rescue Poseidon::Errors::UnableToFetchMetadata
+    producer = nil
+  end
+end
+
+p "done pumping to kafka"
