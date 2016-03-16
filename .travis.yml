@@ -4,6 +4,8 @@ install:
   - "curl http://files.zerogw.com/vagga/vagga-install-testing.sh | sh"
   - "echo ubuntu-mirror: http://mirrors.us.kernel.org/ubuntu/ > ~/.vagga.yaml"
   - "echo alpine-mirror: http://mirrors.gigenet.com/alpinelinux/ >> ~/.vagga.yaml"
+  - cat hosts | sudo tee /etc/hosts
+  - vagga _create_netns
   - vagga _build kafka
   - vagga _build logstash
   - vagga _build elasticsearch

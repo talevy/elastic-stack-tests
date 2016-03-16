@@ -28,7 +28,7 @@ topic = "avro_meet_kafka"
 producer = nil
 while producer.nil?
   begin
-    producer = Poseidon::Producer.new(["localhost:9092"], "my_test_producer")
+    producer = Poseidon::Producer.new(["172.18.0.2:9092"], "my_test_producer")
     gen_random_events(N).each_slice(N_BATCH) { |batch|
       producer.send_messages(batch.map{|m| Poseidon::MessageToSend.new(topic, encode(m))})
     }

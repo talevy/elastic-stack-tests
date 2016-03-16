@@ -2,20 +2,22 @@ $script = <<SCRIPT
   echo 'deb http://ubuntu.zerogw.com vagga-testing main' | sudo tee /etc/apt/sources.list.d/vagga.list
   sudo apt-get update
   sudo apt-get -y -f --allow-unauthenticated install vagga
-  mkdir -p /var/vagga
+  sudo mkdir -p /var/vagga
   mkdir -p /parent/.vagga
-  chown -R vagrant:vagrant /var/vagga
-  mount --bind /var/vagga /parent/.vagga
-  echo "127.0.0.1 vagrant-ubuntu-vivid-64" >> /etc/hosts
-  mkdir /home/vagrant/.cache/vagga
-  mkdir /home/vagrant/.cache/vagga/cache
-  echo "cache-dir: /home/vagrant/.cache/vagga/cache" > /home/vagrant/.config/vagga/settings.yaml
+  sudo chown -R vagrant:vagrant /var/vagga
+  sudo mount --bind /var/vagga /parent/.vagga
+  sudo mkdir -p /var/vagga/cache/
+  sudo chown -R vagrant:vagrant /var/vagga/cache
+  #echo "cache-dir: /parent/vaggacache" > /home/vagrant/.vagga.yaml
+  cd /parent
+  vagga _create_netns
+  sudo iptables "-t" "nat" "-A" "POSTROUTING" "-s" "172.18.255.0/30" "-j" "MASQUERADE"
 SCRIPT
 
 Vagrant.configure(2) do |config|
   config.vm.provider "virtualbox" do |vb|
     vb.gui = false
-    vb.name = "logstash-kafka-avro"
+    vb.name = "logstash-kafka-test"
     vb.memory = "4096"
     vb.cpus = 1
   end
@@ -30,5 +32,6 @@ Vagrant.configure(2) do |config|
   config.vm.synced_folder ".", "/parent", type: "nfs", :linux__nfs_options => ['rw', 'no_root_squash']
   config.bindfs.bind_folder "/parent", "/parent"
 
-  config.vm.provision "shell", inline: $script
+
+  config.vm.provision "shell", inline: $script, privileged: false
 end
