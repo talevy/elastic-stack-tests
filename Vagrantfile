@@ -12,6 +12,7 @@ $script = <<SCRIPT
   cd /parent
   vagga _create_netns
   sudo iptables "-t" "nat" "-A" "POSTROUTING" "-s" "172.18.255.0/30" "-j" "MASQUERADE"
+  cat /parent/hosts > /etc/hosts
 SCRIPT
 
 Vagrant.configure(2) do |config|
@@ -19,7 +20,7 @@ Vagrant.configure(2) do |config|
     vb.gui = false
     vb.name = "logstash-kafka-test"
     vb.memory = "4096"
-    vb.cpus = 1
+    vb.cpus = 4
   end
   
   config.vm.box = "ubuntu/vivid64"

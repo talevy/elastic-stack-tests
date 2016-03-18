@@ -1,53 +1,21 @@
 containers:
-  glibc:
-    environ:
-      LANG: "C.UTF-8"
+  java8:
     setup:
-    - !Alpine v3.3
-    - !Sh |
-        ALPINE_GLIBC_BASE_URL="https://github.com/andyshinn/alpine-pkg-glibc/releases/download" && \
-        ALPINE_GLIBC_PACKAGE_VERSION="2.23-r1" && \
-        ALPINE_GLIBC_BASE_PACKAGE_FILENAME="glibc-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
-        ALPINE_GLIBC_BIN_PACKAGE_FILENAME="glibc-bin-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
-        ALPINE_GLIBC_I18N_PACKAGE_FILENAME="glibc-i18n-$ALPINE_GLIBC_PACKAGE_VERSION.apk" && \
-        apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
-        wget \
-          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_BASE_URL/$ALPINE_GLIBC_PACKAGE_VERSION/$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" && \
-        apk add --no-cache --allow-untrusted \
-          "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME" && \
-        /usr/glibc-compat/bin/localedef --force --inputfile POSIX --charmap UTF-8 C.UTF-8 || true && \
-        echo "export LANG=C.UTF-8" > /etc/profile.d/locale.sh && \
-        apk del glibc-i18n && \
-        apk del build-dependencies && \
-        rm \
-          "$ALPINE_GLIBC_BASE_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_BIN_PACKAGE_FILENAME" \
-          "$ALPINE_GLIBC_I18N_PACKAGE_FILENAME"
-
-  oracle8java:
-    environ:
-      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
-      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-8-oracle/bin"
-    setup:
-    - !Container glibc
+    - !UbuntuRelease { version: 15.04 }
     - !Env
       JAVA_VERSION: 8
       JAVA_UPDATE: 74
       JAVA_BUILD: 02
       JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
+    - !BuildDeps [wget, ca-certificates]
     - !Sh |
-        apk add --no-cache --virtual=build-dependencies wget ca-certificates && \
-        cd "/tmp" && \
+        cd "/tmp"
         wget --header "Cookie: oraclelicense=accept-securebackup-cookie;" \
-          "http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION}u${JAVA_UPDATE}-b${JAVA_BUILD}/jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
-        tar -xzf "jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz" && \
-        mkdir -p "/usr/lib/jvm" && \
-        mv "/tmp/jdk1.${JAVA_VERSION}.0_${JAVA_UPDATE}" "${JAVA_HOME}" && \
-        rm -rf "$JAVA_HOME/"*src.zip && \
+          "http://download.oracle.com/otn-pub/java/jdk/${JAVA_VERSION}u${JAVA_UPDATE}-b${JAVA_BUILD}/jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz"
+        tar -xzf "jdk-${JAVA_VERSION}u${JAVA_UPDATE}-linux-x64.tar.gz"
+        mkdir -p "/usr/lib/jvm"
+        mv "/tmp/jdk1.${JAVA_VERSION}.0_${JAVA_UPDATE}" "${JAVA_HOME}"
+        rm -rf "$JAVA_HOME/"*src.zip
         rm -rf "$JAVA_HOME/lib/missioncontrol" \
            "$JAVA_HOME/lib/visualvm" \
            "$JAVA_HOME/lib/"*javafx* \
@@ -66,16 +34,16 @@ containers:
            "$JAVA_HOME/jre/lib/amd64/libglass.so" \
            "$JAVA_HOME/jre/lib/amd64/libgstreamer-lite.so" \
            "$JAVA_HOME/jre/lib/amd64/"libjavafx*.so \
-           "$JAVA_HOME/jre/lib/amd64/"libjfx*.so && \
-        apk del build-dependencies && \
+           "$JAVA_HOME/jre/lib/amd64/"libjfx*.so
         rm "/tmp/"*
-
+        echo "export JAVA_HOME=/usr/lib/jvm/java-8-oracle" >> /etc/profile
+  
   zookeeper:
     environ:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/zookeeper/bin"
       JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
     setup:
-      - !Container oracle8java
+      - !Container java8
       - !Install [bash]
       - !Tar
         url: http://mirror.cc.columbia.edu/pub/software/apache/zookeeper/zookeeper-3.4.8/zookeeper-3.4.8.tar.gz
@@ -89,11 +57,10 @@ containers:
   kafka:
     environ:
       PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/kafka/bin"
-      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
       LOG_DIR: "/broker-logs"
+      JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
     setup:
-      - !Container oracle8java
-      - !Install [bash]
+      - !Container java8
       - !EnsureDir /kafka-logs
       - !EnsureDir /broker-logs
       - !Tar
@@ -102,14 +69,13 @@ containers:
         subdir: kafka_2.11-0.8.2.2
     volumes:
       /kafka-logs: !BindRW /work/kafka-logs
-      #/kafka-logs: !Tmpfs { size: 200Mi }
       /broker-logs: !Tmpfs { size: 10Mi }
 
   elasticsearch:
     environ:
       JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
     setup:
-    - !Container oracle8java
+    - !Container java8
     - !Tar
       url: https://download.elasticsearch.org/elasticsearch/release/org/elasticsearch/distribution/tar/elasticsearch/2.2.0/elasticsearch-2.2.0.tar.gz
       path: /usr/share/
@@ -122,16 +88,21 @@ containers:
 
   logstash:
     environ:
+      PATH: "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-8-oracle/bin"
       JAVA_HOME: "/usr/lib/jvm/java-8-oracle"
     setup:
-    - !Container oracle8java
-    - !Install [bash]
+    - !Container java8
+    - !Install [python3-requests]
+    - !PipConfig
+      dependencies: true
+    - !Py3Install [pykafka, elasticsearch]
     - !Tar
       url: https://download.elastic.co/logstash/logstash/logstash-2.2.2.tar.gz
       path: /usr/share
     - !Sh |
+        cat /work/hosts > /etc/hosts
+    - !Sh |
         /usr/share/logstash-2.2.2/bin/plugin install logstash-codec-avro
-
 
   ruby:
     setup:
@@ -159,11 +130,12 @@ commands:
           ip: 172.18.0.2
         run: |
           trap 'rm -rf /work/kafka-logs/*' EXIT TERM INT
-          trap 'kill -TERM $PID' TERM INT SIGTERM
+          trap 'kill -TERM $PID' EXIT TERM INT
           kafka-server-start.sh /work/config/kafka.properties >/work/.kafka.log 2>&1 &
           PID=$!
+          sleep 3
+          kafka-topics.sh --create --partitions 4 --replication-factor 1 --topic avro_meet_kafka --zookeeper zookeeper:2181
           wait $PID
-          EXIT_STATUS=$?
 
       elasticsearch: !Command
         container: elasticsearch
@@ -180,24 +152,17 @@ commands:
         network:
           ip: 172.18.0.4
         run: |
-          /usr/share/logstash-2.2.2/bin/logstash -f /work/logstash.conf
+          rm -f /work/logstash.out
+          /usr/share/logstash-2.2.2/bin/logstash -f /work/logstash.conf > /work/logstash.out 2>/dev/null
+          rm -f /work/logstash.out
 
       rubyrunner: !BridgeCommand
         container: ruby
         run: |
-          cat /etc/hosts
           ruby /work/publish_tweets.rb
           cat
 
       assert: !BridgeCommand
-        container: ruby
+        container: logstash
         run: |
-          until $(curl --output /dev/null --silent --head --fail http://172.18.0.3:9200); do
-            sleep 30
-          done
-          if [ `curl 172.18.0.3:9200/_cat/count/logstash-*?h=count` -eq 1000 ];
-          then
-            echo "Whoo hoo!"
-          else
-            exit 1
-          fi
+          python3 /work/test.py

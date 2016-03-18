@@ -37,5 +37,3 @@ while producer.nil?
     producer = nil
   end
 end
-
-p "done pumping to kafka"
